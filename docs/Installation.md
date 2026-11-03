@@ -60,7 +60,7 @@ See [Build from source](Build-from-source.md).
 ## What's in the archive
 
 - `obscura`: CLI and CDP server.
-- `obscura-worker`: helper for the parallel `scrape` command. Keep both in the same directory.
+- `obscura-worker`: compatibility launcher for the old worker entry point. `scrape` re-execs `obscura` directly; keep this file only if a script invokes `obscura-worker` itself.
 
 Archive suffixes identify the feature set: no suffix includes rendering,
 `-stealth` includes rendering and stealth, `-no-render` includes neither, and

@@ -4,6 +4,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 mod pool;
+mod worker;
 
 use clap::{Parser, Subcommand};
 use obscura_browser::{BrowserContext, Page};
@@ -240,6 +241,10 @@ enum Command {
         #[arg(long)]
         user_agent: Option<String>,
     },
+
+    /// Internal NDJSON worker used by `scrape`. Not a public command.
+    #[command(hide = true, name = "__worker")]
+    Worker,
 }
 
 #[derive(Clone, Debug, clap::ValueEnum, PartialEq, Eq)]
@@ -671,6 +676,9 @@ async fn run_cli() -> anyhow::Result<()> {
             } else {
                 obscura_mcp::run(mcp_proxy, user_agent, stealth).await?;
             }
+        }
+        Some(Command::Worker) => {
+            worker::run().await?;
         }
         None => {
             print_banner(args.port);
@@ -2057,22 +2065,10 @@ async fn run_parallel_scrape(
         );
     }
 
-    let worker_name = if cfg!(windows) {
-        "obscura-worker.exe"
-    } else {
-        "obscura-worker"
-    };
-    let worker_path = std::env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(|d| d.join(worker_name)))
-        .unwrap_or_else(|| std::path::PathBuf::from(worker_name));
-
-    if !worker_path.exists() {
-        anyhow::bail!(
-            "Worker binary not found at {}. Build with: cargo build --release",
-            worker_path.display()
-        );
-    }
+    // Re-exec this same binary in worker mode. This keeps the per-worker
+    // process isolation `scrape` has always relied on while avoiding a second
+    // full copy of the engine (and its V8 static library) in every archive.
+    let worker_path = std::env::current_exe()?;
 
     let eval = Arc::new(eval);
     let worker_path = Arc::new(worker_path);
@@ -2090,6 +2086,7 @@ async fn run_parallel_scrape(
             let task_start = Instant::now();
 
             let mut child = match TokioCommand::new(worker_path.as_ref())
+                .arg("__worker")
                 .stdin(std::process::Stdio::piped())
                 .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::null())

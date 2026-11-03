@@ -1,0 +1,94 @@
+name: linux-single-binary
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/single-binary-worker
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: x86_64-linux-no-render
+            os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            features: --no-default-features
+            screenshot: false
+          - name: x86_64-linux-render
+            os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            features: --features render
+            screenshot: true
+          - name: aarch64-linux-no-render
+            os: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+            features: --no-default-features
+            screenshot: false
+          - name: aarch64-linux-render
+            os: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+            features: --features render
+            screenshot: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build
+        run: |
+          cargo build --profile release-dist \
+            --target ${{ matrix.target }} \
+            -p obscura-cli --bins ${{ matrix.features }}
+
+      - name: Smoke test
+        run: |
+          BIN="target/${{ matrix.target }}/release-dist/obscura"
+          WORKER="target/${{ matrix.target }}/release-dist/obscura-worker"
+
+          "$BIN" fetch "data:text/html,<title>ok</title>" --eval "1+1"
+
+          printf '%s\n' \
+            '{"cmd":"navigate","url":"data:text/html,<title>worker-ok</title>"}' \
+            '{"cmd":"title"}' \
+            '{"cmd":"shutdown"}' \
+            | "$WORKER" | tee worker.out
+          grep -q 'worker-ok' worker.out
+
+          "$BIN" scrape \
+            "data:text/html,<title>a</title>" \
+            "data:text/html,<title>b</title>" \
+            --concurrency 2 --format json --quiet > scrape.json
+          test -s scrape.json
+          grep -q '"title": "a"' scrape.json
+
+          if [ "${{ matrix.screenshot }}" = "true" ]; then
+            "$BIN" fetch \
+              "data:text/html,<style>body{margin:0;background:%23123456}</style>" \
+              -s smoke.png
+            test -s smoke.png
+          fi
+
+      - name: Package
+        run: |
+          OUT="target/${{ matrix.target }}/release-dist"
+          mkdir -p dist
+          cp "$OUT/obscura" "$OUT/obscura-worker" dist/
+          stat -c '%n %s bytes' dist/*
+          tar czf "obscura-${{ matrix.name }}.tar.gz" -C dist obscura obscura-worker
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: obscura-${{ matrix.name }}
+          path: obscura-${{ matrix.name }}.tar.gz

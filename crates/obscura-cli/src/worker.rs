@@ -69,13 +69,12 @@ impl WorkerResponse {
     }
 }
 
-#[tokio::main(flavor = "current_thread")]
-async fn main() {
-    tracing_subscriber::fmt()
-        .with_env_filter("warn")
-        .with_writer(std::io::stderr)
-        .init();
-
+/// Run the NDJSON worker loop on the current Tokio runtime.
+///
+/// The parent CLI owns logging initialization and V8 flag setup before
+/// dispatching here. Initializing a second global tracing subscriber would
+/// panic, so this function deliberately does not call `.init()`.
+pub async fn run() -> anyhow::Result<()> {
     let proxy = std::env::var("OBSCURA_PROXY")
         .ok()
         .map(|value| value.trim().to_string())
@@ -210,4 +209,6 @@ async fn main() {
         let _ = stdout.write_all(out.as_bytes()).await;
         let _ = stdout.flush().await;
     }
+
+    Ok(())
 }

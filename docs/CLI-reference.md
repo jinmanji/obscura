@@ -111,7 +111,7 @@ Read URLs from stdin with `-`:
 cat urls.txt | obscura scrape - --eval "document.title" --concurrency 20
 ```
 
-Requires `obscura-worker` next to `obscura` in `PATH`.
+`scrape` re-execs the current `obscura` binary in worker mode; the separate `obscura-worker` launcher is kept for compatibility with scripts that invoke it directly.
 
 ## `obscura mcp`
 

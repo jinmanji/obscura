@@ -136,9 +136,9 @@ tar xzf obscura-x86_64-macos.tar.gz
 Download the `.zip` from the releases page and extract it manually.
 ```
 
-No Chrome, no Node.js, no dependencies. Release archives include both
-`obscura` and `obscura-worker`; keep them in the same directory for the
-parallel `scrape` command.
+No Chrome, no Node.js, no dependencies. `obscura scrape` re-execs the current
+`obscura` binary in worker mode; the archive's `obscura-worker` is a small
+compatibility launcher for scripts that invoke that path directly.
 
 | Archive suffix | Rendering | Stealth transport |
 |----------------|-----------|-------------------|

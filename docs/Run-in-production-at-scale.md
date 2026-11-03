@@ -118,7 +118,7 @@ Reads URLs from stdin:
 cat urls.txt | obscura scrape --concurrency 20 -
 ```
 
-Requires `obscura-worker` next to `obscura` in `PATH`.
+`scrape` re-execs the current `obscura` binary in worker mode, so no separate worker file is required.
 
 ## Resource limits
 

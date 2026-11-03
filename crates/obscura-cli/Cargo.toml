@@ -11,7 +11,7 @@ path = "src/main.rs"
 
 [[bin]]
 name = "obscura-worker"
-path = "src/worker.rs"
+path = "src/worker_shim.rs"
 
 [features]
 default = []
